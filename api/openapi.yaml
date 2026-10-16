@@ -1,0 +1,2299 @@
+openapi: 3.1.0
+info:
+  title: Global Mandiri Computer (GMC) API
+  version: 1.0.0
+  description: Authoritative REST API for Global Mandiri Computer e-commerce platform.
+servers:
+  - url: http://localhost:8080
+    description: Local API server
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      operationId: getHealthz
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /readyz:
+    get:
+      summary: Readiness probe
+      operationId: getReadyz
+      responses:
+        '200':
+          description: Service and database are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/categories:
+    get:
+      summary: List all product categories
+      operationId: getCategories
+      responses:
+        '200':
+          description: Flat list of categories ordered by sortOrder
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+  /v1/brands:
+    get:
+      summary: List all brands
+      operationId: getBrands
+      responses:
+        '200':
+          description: List of brands with product counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Brand'
+
+  /v1/products:
+    get:
+      summary: List and filter products with facets
+      operationId: getProducts
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+        - name: brand
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+        - name: minPriceIdr
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: maxPriceIdr
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ProductSort'
+        - name: featured
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 24
+      responses:
+        '200':
+          description: Filtered product pagination envelope with facets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/products/{slug}:
+    get:
+      summary: Get product details by slug
+      operationId: getProductBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product detail with all variants and options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/products/{slug}/related:
+    get:
+      summary: Get related products
+      operationId: getRelatedProducts
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of up to 8 related product cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductCard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/variants/resolve:
+    get:
+      summary: Resolve a variant by SKU or option values
+      operationId: resolveVariant
+      parameters:
+        - name: sku
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: productSlug
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: optionValueIds
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Comma-separated option value UUIDs
+      responses:
+        '200':
+          description: Resolved variant and product slug
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvedVariant'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/cart/validate:
+    post:
+      summary: Validate a cart and return computed lines and issues
+      operationId: validateCart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartValidateRequest'
+      responses:
+        '200':
+          description: Cart validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartValidateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/me/cart:
+    get:
+      summary: Get current authenticated user's cart
+      operationId: getMyCart
+      responses:
+        '200':
+          description: User stored cart items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartItemsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      summary: Replace current authenticated user's cart items
+      operationId: replaceMyCart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemsRequest'
+      responses:
+        '204':
+          description: Cart replaced successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/me/cart/merge:
+    post:
+      summary: Merge guest cart items into authenticated user's cart
+      operationId: mergeMyCart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemsRequest'
+      responses:
+        '200':
+          description: Merged cart validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartValidateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/checkout:
+    post:
+      summary: Create an order transactionally with stock reservation
+      operationId: createCheckout
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Conflict (out of stock, price changed, idempotency mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /v1/orders/{orderNo}:
+    get:
+      summary: Get order details by order number
+      operationId: getOrderByNumber
+      parameters:
+        - name: orderNo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Guest view token
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/auth/register:
+    post:
+      summary: Register a new customer account
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /v1/auth/login:
+    post:
+      summary: Customer / Admin login
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/auth/refresh:
+    post:
+      summary: Refresh JWT access token with rotation grace
+      operationId: refreshToken
+      responses:
+        '204':
+          description: Token refreshed, new cookies issued
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/auth/logout:
+    post:
+      summary: Log out and invalidate session
+      operationId: logoutUser
+      responses:
+        '204':
+          description: Logged out successfully
+
+  /v1/auth/forgot-password:
+    post:
+      summary: Request password reset instructions
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '204':
+          description: Password reset accepted (no enumeration)
+
+  /v1/me:
+    get:
+      summary: Get current authenticated user profile
+      operationId: getMe
+      responses:
+        '200':
+          description: Authenticated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      summary: Update profile details
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: New email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/me/password:
+    put:
+      summary: Change password and revoke other sessions
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed successfully
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /v1/me/addresses:
+    get:
+      summary: List user shipping addresses
+      operationId: getAddresses
+      responses:
+        '200':
+          description: List of saved addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a new shipping address
+      operationId: createAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '201':
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/me/addresses/{id}:
+    patch:
+      summary: Update a shipping address
+      operationId: updateAddress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressPatchInput'
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete an address
+      operationId: deleteAddress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Address deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/me/orders:
+    get:
+      summary: List current user's order history
+      operationId: getMyOrders
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Order number prefix search
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 20
+      responses:
+        '200':
+          description: Paginated user orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSummaryPagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/me/orders/{orderNo}:
+    get:
+      summary: Get order details by order number for current user
+      operationId: getMyOrderByNumber
+      parameters:
+        - name: orderNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/me/wishlist:
+    get:
+      summary: Get user wishlist products
+      operationId: getMyWishlist
+      responses:
+        '200':
+          description: Wishlist product cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/me/wishlist/{productId}:
+    put:
+      summary: Add product to wishlist
+      operationId: addToWishlist
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Product added to wishlist
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Remove product from wishlist
+      operationId: removeFromWishlist
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Product removed from wishlist
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/contact:
+    post:
+      summary: Submit contact inquiry
+      operationId: submitContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+      responses:
+        '201':
+          description: Contact inquiry received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/newsletter:
+    post:
+      summary: Subscribe to newsletter
+      operationId: subscribeNewsletter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsletterRequest'
+      responses:
+        '204':
+          description: Subscription received
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /v1/site:
+    get:
+      summary: Get store public configuration and announcements
+      operationId: getSiteInfo
+      responses:
+        '200':
+          description: Store configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInfo'
+        '503':
+          description: Store is closed for maintenance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/admin/auth/login:
+    post:
+      summary: Admin staff/owner login
+      operationId: adminLogin
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Admin login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '400':
+          description: Bad request or 2FA required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLogin2FARequiredResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/admin/auth/logout:
+    post:
+      summary: Admin logout
+      operationId: adminLogout
+      tags:
+        - admin
+      responses:
+        '204':
+          description: Logged out successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/admin/auth/refresh:
+    post:
+      summary: Refresh admin session
+      operationId: adminRefresh
+      tags:
+        - admin
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/admin/me:
+    get:
+      summary: Get current authenticated admin user
+      operationId: getAdminMe
+      tags:
+        - admin
+      responses:
+        '200':
+          description: Current admin user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserWithPermissions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/account/password:
+    put:
+      summary: Update own admin password
+      operationId: adminChangePassword
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminChangePasswordRequest'
+      responses:
+        '200':
+          description: Password updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/account/totp/setup:
+    post:
+      summary: Generate TOTP secret and backup codes
+      operationId: adminTotpSetup
+      tags:
+        - admin
+      responses:
+        '200':
+          description: TOTP setup details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTotpSetupResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/account/totp/enable:
+    post:
+      summary: Verify code and enable TOTP
+      operationId: adminTotpEnable
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTotpEnableRequest'
+      responses:
+        '200':
+          description: TOTP enabled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/account/totp/disable:
+    post:
+      summary: Disable TOTP
+      operationId: adminTotpDisable
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTotpDisableRequest'
+      responses:
+        '200':
+          description: TOTP disabled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/counters:
+    get:
+      summary: Get badge counters for admin navigation
+      operationId: getAdminCounters
+      tags:
+        - admin
+      responses:
+        '200':
+          description: Badge counters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCounters'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  responses:
+    BadRequest:
+      description: Bad request or malformed body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized or token expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden or insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationFailed:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ErrorCode:
+      type: string
+      enum:
+        - bad_request
+        - validation_failed
+        - unauthorized
+        - token_expired
+        - invalid_credentials
+        - forbidden
+        - not_found
+        - conflict
+        - email_taken
+        - out_of_stock
+        - price_changed
+        - idempotency_conflict
+        - rate_limited
+        - locked
+        - store_closed
+        - requires_2fa
+        - invalid_totp
+        - insufficient_stock
+        - voucher_invalid
+        - voucher_expired
+        - voucher_depleted
+        - internal
+
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+        - requestId
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          example: Data tidak valid
+        requestId:
+          type: string
+          example: 01J9X123456789ABCDEF
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            email: Email tidak valid
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    Brand:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - productCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: fractal-design
+        name:
+          type: string
+          example: Fractal Design
+        productCount:
+          type: integer
+          example: 12
+
+    Category:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - parentSlug
+        - productCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: pc-cases
+        name:
+          type: string
+          example: PC Cases
+        parentSlug:
+          type: string
+          nullable: true
+          example: components
+        productCount:
+          type: integer
+          example: 8
+
+    ImageKind:
+      type: string
+      enum:
+        - product
+        - lifestyle
+        - detail
+
+    Image:
+      type: object
+      required:
+        - url
+        - alt
+        - width
+        - height
+        - kind
+      properties:
+        url:
+          type: string
+          example: /images/products/case-black.webp
+        alt:
+          type: string
+          example: Fractal Design North Front View
+        width:
+          type: integer
+          nullable: true
+          example: 1200
+        height:
+          type: integer
+          nullable: true
+          example: 1200
+        kind:
+          $ref: '#/components/schemas/ImageKind'
+
+    StockStatus:
+      type: string
+      enum:
+        - in_stock
+        - low_stock
+        - preorder
+        - out_of_stock
+
+    ProductSort:
+      type: string
+      enum:
+        - newest
+        - price_asc
+        - price_desc
+        - name_asc
+
+    ProductCard:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - summary
+        - brand
+        - category
+        - priceFromIdr
+        - priceToIdr
+        - compareAtPriceFromIdr
+        - images
+        - stockStatus
+        - isFeatured
+        - hasVariants
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: fractal-design-north
+        name:
+          type: string
+          example: Fractal Design North Charcoal Black
+        summary:
+          type: string
+          example: Mid-tower gaming case with genuine walnut wood front
+        brand:
+          $ref: '#/components/schemas/Brand'
+        category:
+          $ref: '#/components/schemas/Category'
+        priceFromIdr:
+          type: integer
+          format: int64
+          example: 2450000
+        priceToIdr:
+          type: integer
+          format: int64
+          example: 2750000
+        compareAtPriceFromIdr:
+          type: integer
+          format: int64
+          nullable: true
+          example: 2850000
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+          maxItems: 2
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        isFeatured:
+          type: boolean
+          example: true
+        hasVariants:
+          type: boolean
+          example: true
+
+    ProductOptionDisplay:
+      type: string
+      enum:
+        - pill
+        - swatch
+
+    ProductOptionValue:
+      type: object
+      required:
+        - id
+        - label
+        - swatchHex
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          example: Charcoal Black / Walnut
+        swatchHex:
+          type: string
+          nullable: true
+          example: '#222222'
+
+    ProductOption:
+      type: object
+      required:
+        - id
+        - name
+        - display
+        - values
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Color / Finish
+        display:
+          $ref: '#/components/schemas/ProductOptionDisplay'
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductOptionValue'
+
+    ProductVariant:
+      type: object
+      required:
+        - id
+        - sku
+        - optionValueIds
+        - priceIdr
+        - compareAtPriceIdr
+        - stock
+        - stockStatus
+        - imageUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+          example: FD-C-NOR1C-01
+        optionValueIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        priceIdr:
+          type: integer
+          format: int64
+          example: 2450000
+        compareAtPriceIdr:
+          type: integer
+          format: int64
+          nullable: true
+          example: 2750000
+        stock:
+          type: integer
+          example: 10
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        imageUrl:
+          type: string
+          nullable: true
+          example: /images/products/case-black.webp
+
+    ProductDetail:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - summary
+        - brand
+        - category
+        - priceFromIdr
+        - priceToIdr
+        - compareAtPriceFromIdr
+        - stockStatus
+        - isFeatured
+        - hasVariants
+        - description
+        - highlights
+        - specs
+        - images
+        - options
+        - variants
+        - whatsappUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: fractal-design-north
+        name:
+          type: string
+          example: Fractal Design North Charcoal Black
+        summary:
+          type: string
+          example: Mid-tower gaming case with genuine walnut wood front
+        brand:
+          $ref: '#/components/schemas/Brand'
+        category:
+          $ref: '#/components/schemas/Category'
+        priceFromIdr:
+          type: integer
+          format: int64
+          example: 2450000
+        priceToIdr:
+          type: integer
+          format: int64
+          example: 2750000
+        compareAtPriceFromIdr:
+          type: integer
+          format: int64
+          nullable: true
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        isFeatured:
+          type: boolean
+        hasVariants:
+          type: boolean
+        description:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        specs:
+          type: object
+          additionalProperties:
+            type: string
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductOption'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+        whatsappUrl:
+          type: string
+          example: https://wa.me/6282232554674?text=Halo
+
+    FacetCount:
+      type: object
+      required:
+        - slug
+        - count
+      properties:
+        slug:
+          type: string
+        count:
+          type: integer
+
+    PriceRange:
+      type: object
+      required:
+        - minIdr
+        - maxIdr
+      properties:
+        minIdr:
+          type: integer
+          format: int64
+        maxIdr:
+          type: integer
+          format: int64
+
+    Facets:
+      type: object
+      required:
+        - categories
+        - brands
+        - priceRange
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacetCount'
+        brands:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacetCount'
+        priceRange:
+          $ref: '#/components/schemas/PriceRange'
+
+    ProductListResponse:
+      type: object
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+        - totalPages
+        - facets
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCard'
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 24
+        total:
+          type: integer
+          example: 80
+        totalPages:
+          type: integer
+          example: 4
+        facets:
+          $ref: '#/components/schemas/Facets'
+
+    ResolvedVariant:
+      type: object
+      required:
+        - variant
+        - productSlug
+      properties:
+        variant:
+          $ref: '#/components/schemas/ProductVariant'
+        productSlug:
+          type: string
+          example: fractal-design-north
+
+    UserRole:
+      type: string
+      enum:
+        - customer
+        - admin
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - phone
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          example: customer@example.com
+        name:
+          type: string
+          example: Budi Santoso
+        phone:
+          type: string
+          example: '6281234567890'
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    Address:
+      type: object
+      required:
+        - id
+        - label
+        - recipientName
+        - phone
+        - street
+        - city
+        - province
+        - postalCode
+        - isDefault
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          nullable: true
+          example: Rumah
+        recipientName:
+          type: string
+          example: Budi Santoso
+        phone:
+          type: string
+          example: '6281234567890'
+        street:
+          type: string
+          example: Jl. Basuki Rahmat No. 12
+        city:
+          type: string
+          example: Surabaya
+        province:
+          type: string
+          example: Jawa Timur
+        postalCode:
+          type: string
+          example: '60271'
+        isDefault:
+          type: boolean
+          example: true
+
+    AddressInput:
+      type: object
+      required:
+        - recipientName
+        - phone
+        - street
+        - city
+        - province
+        - postalCode
+      properties:
+        label:
+          type: string
+          nullable: true
+        recipientName:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        postalCode:
+          type: string
+        isDefault:
+          type: boolean
+          default: false
+
+    AddressPatchInput:
+      type: object
+      properties:
+        label:
+          type: string
+          nullable: true
+        recipientName:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        postalCode:
+          type: string
+        isDefault:
+          type: boolean
+
+    CartItemInput:
+      type: object
+      required:
+        - variantId
+        - quantity
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          example: 1
+
+    CartValidateRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+          minItems: 1
+          maxItems: 50
+
+    CartLineIssue:
+      type: string
+      enum:
+        - out_of_stock
+        - insufficient_stock
+        - unavailable
+
+    CartLine:
+      type: object
+      required:
+        - variantId
+        - sku
+        - productSlug
+        - name
+        - brand
+        - variantLabel
+        - imageUrl
+        - unitPriceIdr
+        - quantity
+        - lineTotalIdr
+        - stock
+        - stockStatus
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        productSlug:
+          type: string
+        name:
+          type: string
+        brand:
+          type: string
+        variantLabel:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        unitPriceIdr:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+        lineTotalIdr:
+          type: integer
+          format: int64
+        stock:
+          type: integer
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        issue:
+          $ref: '#/components/schemas/CartLineIssue'
+          nullable: true
+
+    CartValidateResponse:
+      type: object
+      required:
+        - lines
+        - subtotalIdr
+        - hasIssues
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+        subtotalIdr:
+          type: integer
+          format: int64
+        hasIssues:
+          type: boolean
+
+    CartItemsRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+
+    CartItemsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+
+    DeliveryMethod:
+      type: string
+      enum:
+        - pickup
+        - delivery
+
+    PaymentMethod:
+      type: string
+      enum:
+        - bank_transfer
+        - cod
+        - pay_at_store
+
+    CustomerInput:
+      type: object
+      required:
+        - name
+        - phone
+        - email
+      properties:
+        name:
+          type: string
+          example: Budi Santoso
+        phone:
+          type: string
+          example: '081234567890'
+        email:
+          type: string
+          format: email
+          example: budi@example.com
+
+    ShippingAddressInput:
+      type: object
+      required:
+        - recipientName
+        - phone
+        - street
+        - city
+        - province
+        - postalCode
+      properties:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        postalCode:
+          type: string
+
+    CheckoutRequest:
+      type: object
+      required:
+        - items
+        - customer
+        - deliveryMethod
+        - paymentMethod
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+          minItems: 1
+        customer:
+          $ref: '#/components/schemas/CustomerInput'
+        deliveryMethod:
+          $ref: '#/components/schemas/DeliveryMethod'
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddressInput'
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        note:
+          type: string
+          nullable: true
+        expectedSubtotalIdr:
+          type: integer
+          format: int64
+          nullable: true
+
+    OrderStatus:
+      type: string
+      enum:
+        - menunggu_konfirmasi
+        - menunggu_pembayaran
+        - diproses
+        - dikirim
+        - siap_diambil
+        - selesai
+        - dibatalkan
+
+    OrderItem:
+      type: object
+      required:
+        - id
+        - variantId
+        - productSlug
+        - sku
+        - name
+        - brand
+        - variantLabel
+        - imageUrl
+        - unitPriceIdr
+        - quantity
+        - lineTotalIdr
+      properties:
+        id:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+          nullable: true
+        productSlug:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        brand:
+          type: string
+        variantLabel:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        unitPriceIdr:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+        lineTotalIdr:
+          type: integer
+          format: int64
+
+    OrderStatusHistoryItem:
+      type: object
+      required:
+        - status
+        - note
+        - createdAt
+      properties:
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Order:
+      type: object
+      required:
+        - id
+        - orderNo
+        - status
+        - createdAt
+        - customerName
+        - customerPhone
+        - customerEmail
+        - deliveryMethod
+        - paymentMethod
+        - note
+        - items
+        - subtotalIdr
+        - shippingIdr
+        - totalIdr
+        - history
+        - whatsappUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+          example: GMC-261015-0001
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        createdAt:
+          type: string
+          format: date-time
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerEmail:
+          type: string
+          format: email
+        deliveryMethod:
+          $ref: '#/components/schemas/DeliveryMethod'
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddressInput'
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        subtotalIdr:
+          type: integer
+          format: int64
+        shippingIdr:
+          type: integer
+          format: int64
+        totalIdr:
+          type: integer
+          format: int64
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusHistoryItem'
+        whatsappUrl:
+          type: string
+
+    CheckoutResponse:
+      type: object
+      required:
+        - order
+        - viewToken
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        viewToken:
+          type: string
+          nullable: true
+          example: 3f7e1b9a...
+
+    OrderSummary:
+      type: object
+      required:
+        - orderNo
+        - status
+        - createdAt
+        - totalIdr
+        - itemCount
+        - firstItemName
+        - firstItemImageUrl
+      properties:
+        orderNo:
+          type: string
+          example: GMC-261015-0001
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        createdAt:
+          type: string
+          format: date-time
+        totalIdr:
+          type: integer
+          format: int64
+        itemCount:
+          type: integer
+        firstItemName:
+          type: string
+        firstItemImageUrl:
+          type: string
+          nullable: true
+
+    OrderSummaryPagination:
+      type: object
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+        - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - phone
+        - password
+      properties:
+        name:
+          type: string
+          example: Budi Santoso
+        email:
+          type: string
+          format: email
+          example: budi@example.com
+        phone:
+          type: string
+          example: '081234567890'
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    AuthResponse:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 72
+
+    ContactSubject:
+      type: string
+      enum:
+        - tanya_produk
+        - order
+        - garansi_retur
+        - lainnya
+
+    ContactRequest:
+      type: object
+      required:
+        - name
+        - email
+        - phone
+        - subject
+        - message
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        subject:
+          $ref: '#/components/schemas/ContactSubject'
+        message:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        website:
+          type: string
+          description: Honeypot field (must be empty)
+
+    ContactResponse:
+      type: object
+      required:
+        - whatsappUrl
+      properties:
+        whatsappUrl:
+          type: string
+
+    NewsletterRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+
+    SiteInfo:
+      type: object
+      required:
+        - storeName
+        - whatsappNumber
+        - storeClosed
+        - announcements
+      properties:
+        storeName:
+          type: string
+        whatsappNumber:
+          type: string
+        storeClosed:
+          type: boolean
+        storeClosedNotice:
+          type: string
+          nullable: true
+        announcements:
+          type: array
+          items:
+            type: string
+        address:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        workingHours:
+          type: string
+          nullable: true
+
+    AdminUserRole:
+      type: string
+      enum:
+        - admin
+        - staff
+
+    AdminUser:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+        - isActive
+        - mustChangePassword
+        - hasTotp
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/AdminUserRole'
+        isActive:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+        hasTotp:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminUserWithPermissions:
+      allOf:
+        - $ref: '#/components/schemas/AdminUser'
+        - type: object
+          required:
+            - permissions
+          properties:
+            permissions:
+              type: array
+              items:
+                type: string
+
+    AdminLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        totpCode:
+          type: string
+          nullable: true
+
+    AdminLoginResponse:
+      type: object
+      required:
+        - token
+        - mustChangePassword
+        - user
+      properties:
+        token:
+          type: string
+        mustChangePassword:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/AdminUserWithPermissions'
+
+    AdminLogin2FARequiredResponse:
+      type: object
+      required:
+        - require2fa
+        - tempToken
+      properties:
+        require2fa:
+          type: boolean
+          example: true
+        tempToken:
+          type: string
+
+    AdminChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 72
+
+    AdminTotpSetupResponse:
+      type: object
+      required:
+        - secret
+        - qrDataUrl
+        - backupCodes
+      properties:
+        secret:
+          type: string
+        qrDataUrl:
+          type: string
+        backupCodes:
+          type: array
+          items:
+            type: string
+
+    AdminTotpEnableRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+
+    AdminTotpDisableRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+
+    AdminCounters:
+      type: object
+      required:
+        - pendingOrders
+        - lowStockVariants
+        - unreadMessages
+        - pendingReviews
+      properties:
+        pendingOrders:
+          type: integer
+        lowStockVariants:
+          type: integer
+        unreadMessages:
+          type: integer
+        pendingReviews:
+          type: integer

@@ -1,0 +1,9 @@
+package: admingen
+output: internal/gen/admingen/admin.gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true
+output-options:
+  include-tags:
+    - admin

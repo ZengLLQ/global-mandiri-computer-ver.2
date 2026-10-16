@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gmc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-gmc}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gmc}
+      POSTGRES_DB: ${DB_NAME:-gmc}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gmc} -d ${DB_NAME:-gmc}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: gomicro/goose:latest
+    container_name: gmc-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./db/migrations:/migrations
+    command: /bin/goose -dir /migrations postgres "postgres://${DB_USER:-gmc}:${DB_PASSWORD:-gmc}@postgres:5432/${DB_NAME:-gmc}?sslmode=disable" up
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: gmc-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      API_PORT: 8080
+      DATABASE_URL: postgres://${DB_USER:-gmc}:${DB_PASSWORD:-gmc}@postgres:5432/${DB_NAME:-gmc}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-super-secret-gmc-key-change-in-production-min-32-bytes}
+      ACCESS_TTL: ${ACCESS_TTL:-15m}
+      REFRESH_TTL: ${REFRESH_TTL:-720h}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-Lax}
+      REFRESH_COOKIE_PATH: ${REFRESH_COOKIE_PATH:-/}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
+      WHATSAPP_NUMBER: ${WHATSAPP_NUMBER:-6282232554674}
+      STORE_NAME: ${STORE_NAME:-Global Mandiri Computer}
+      STORE_TZ: ${STORE_TZ:-Asia/Jakarta}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@globalmandiri.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminGMC2026!Secure}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "/app/api", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: gmc-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_INTERNAL_URL: http://api:8080
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+
+  seed:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: gmc-seed
+    profiles: ["seed"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./db/seed/products.csv:/db/seed/products.csv:ro
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-gmc}:${DB_PASSWORD:-gmc}@postgres:5432/${DB_NAME:-gmc}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-change-me-min-32-chars-at-least-32-bytes}
+      APP_ENV: ${APP_ENV:-development}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@globalmandiri.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminGMC2026!Secure}
+    entrypoint: ["/app/seed"]
+
+volumes:
+  pgdata:

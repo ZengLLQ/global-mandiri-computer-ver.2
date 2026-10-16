@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <rect width="800" height="800" fill="#F2EFE8"/>
+  <g transform="translate(400, 360)">
+    <!-- Architectural product frame -->
+    <rect x="-180" y="-140" width="360" height="280" rx="4" fill="#E8E4DA" stroke="#DAD6CC" stroke-width="2"/>
+    <circle cx="0" cy="0" r="64" fill="none" stroke="#111111" stroke-width="3" stroke-dasharray="6,6"/>
+    <rect x="-24" y="-24" width="48" height="48" rx="2" fill="#111111"/>
+    <!-- Subtle technical grid -->
+    <line x1="-160" y1="-100" x2="160" y2="-100" stroke="#DAD6CC" stroke-width="1"/>
+    <line x1="-160" y1="100" x2="160" y2="100" stroke="#DAD6CC" stroke-width="1"/>
+    <line x1="-100" y1="-140" x2="-100" y2="140" stroke="#DAD6CC" stroke-width="1"/>
+    <line x1="100" y1="-140" x2="100" y2="140" stroke="#DAD6CC" stroke-width="1"/>
+  </g>
+  <!-- Micro label brand & sku -->
+  <text x="400" y="580" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" letter-spacing="3" fill="#8B877E">AMD</text>
+  <text x="400" y="612" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="500" letter-spacing="-0.5" fill="#111111">PROCESSOR • GMC-CPU-04</text>
+  <text x="400" y="640" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400" fill="#5F5C55">GLOBAL MANDIRI COMPUTER</text>
+</svg>
