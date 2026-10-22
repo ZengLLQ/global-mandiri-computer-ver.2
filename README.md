@@ -1,4 +1,4 @@
-# Global Mandiri Computer (GMC) — Contract-First Storefront & Backend
+# Global Mandiri Computer (GMC) — Contract-First Storefront & Back-End
 
 Platform e-commerce katalog dan pemesanan hardware IT untuk **Global Mandiri Computer (GMC)**, berlokasi di **ITC Mega Grosir Lt. 2 Blok B/7, Surabaya, Jawa Timur**.
 
