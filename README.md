@@ -6,7 +6,7 @@ Sistem ini dirancang dengan standar keandalan tinggi dan **Zero Contract Drift**
 
 ---
 
-## 1. Arsitektur & Teknologi Information
+## 1. Arsitektur & Teknologi Information Teknis
 
 ```
 gmc/
